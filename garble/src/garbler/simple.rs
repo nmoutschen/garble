@@ -1,4 +1,5 @@
 use crate::Garbler;
+use paste::paste;
 use rand::prelude::*;
 
 /// Simple implement of a randomizer [`Garbler`]
@@ -25,44 +26,56 @@ impl SimpleGarbler {
     }
 }
 
-macro_rules! impl_value {
+macro_rules! impl_func {
     ($($t:ty => $v:expr),*) => {
-        $(
-            impl<'g> Garbler<'g, $t> for SimpleGarbler {
-                fn garble(&mut self, value: $t) -> $t {
-                    if self.should_garble() {
-                        match self.rng.gen() {
-                            v if v == value => $v(value),
-                            v => v,
-                        }
-                    } else {
-                        value
+        $(paste! {
+            fn [<garble_ $t:lower>](&mut self, value: $t) -> $t {
+                if self.should_garble() {
+                    match self.rng.gen() {
+                        v if v == value => $v(value),
+                        v => v,
                     }
+                } else {
+                    value
                 }
             }
-        )*
+        })*
     }
 }
-impl_value!(
-    u8 => |v| v + 1,
-    u16 => |v| v + 1,
-    u32 => |v| v + 1,
-    u64 => |v| v + 1,
-    u128 => |v| v + 1,
-    usize => |v| v + 1,
-    i8 => |v| v + 1,
-    i16 => |v| v + 1,
-    i32 => |v| v + 1,
-    i64 => |v| v + 1,
-    i128 => |v| v + 1,
-    isize => |v| v + 1,
-    f32 => |v: f32| v.powf(2.0),
-    f64 => |v: f64| v.powf(2.0)
-);
+impl<'g> Garbler<'g> for SimpleGarbler {
+    impl_func!(
+        char => |v| std::char::from_u32(v as u32 + 1).unwrap_or('g'),
+        u8 => |v| v + 1,
+        u16 => |v| v + 1,
+        u32 => |v| v + 1,
+        u64 => |v| v + 1,
+        u128 => |v| v + 1,
+        usize => |v| v + 1,
+        i8 => |v| v + 1,
+        i16 => |v| v + 1,
+        i32 => |v| v + 1,
+        i64 => |v| v + 1,
+        i128 => |v| v + 1,
+        isize => |v| v + 1,
+        f32 => |v: f32| v.powf(2.0),
+        f64 => |v: f64| v.powf(2.0)
+    );
 
-impl<'g> Garbler<'g, bool> for SimpleGarbler {
-    fn garble(&mut self, value: bool) -> bool {
+    fn garble_bool(&mut self, value: bool) -> bool {
         self.should_garble() != value
+    }
+
+    fn garble_string(&mut self, value: String) -> String {
+        value
+            .chars()
+            .map(|c| {
+                if self.should_garble() {
+                    self.rng.gen()
+                } else {
+                    c
+                }
+            })
+            .collect()
     }
 }
 
@@ -75,7 +88,7 @@ mod tests {
     macro_rules! test_values {
         ($($t:ty => ($s:ident, $v:expr)),*) => {
             $(paste! {
-                mod [<$t _ $s>] {
+                mod [<$t:lower _ $s>] {
                     use super::*;
 
                     #[test]
@@ -106,6 +119,36 @@ mod tests {
                         let value = NoGarble($v).garble(&mut garbler);
                         // THEN the value should be the same as the original
                         assert_eq!(value, $v);
+                    }
+
+                    #[test]
+                    fn [<test_100pc_option>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(1.0);
+                        // WHEN we garble an option
+                        let value = Some($v).garble(&mut garbler);
+                        // THEN the value should be different
+                        assert_ne!(value, Some($v));
+                    }
+
+                    #[test]
+                    fn [<test_100pc_vec>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(1.0);
+                        // WHEN we garble a vector
+                        let value = vec![$v].garble(&mut garbler);
+                        // THEN the value should be different
+                        assert_ne!(value, vec![$v]);
+                    }
+
+                    #[test]
+                    fn [<test_100pc_boxed>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(1.0);
+                        // WHEN we garble a boxed value
+                        let value = Box::new($v).garble(&mut garbler);
+                        // THEN the value should be different
+                        assert_ne!(value, $v);
                     }
                 }
             })*
@@ -150,6 +193,9 @@ mod tests {
         f32 => (zero, 0.0),
         f64 => (min, f64::MIN),
         f64 => (max, f64::MAX),
-        f64 => (zero, 0.0)
+        f64 => (zero, 0.0),
+        char => (a, 'a'),
+        char => (carb, '🦀'),
+        String => (short, String::from("hello, world"))
     );
 }

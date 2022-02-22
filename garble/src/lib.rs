@@ -1,8 +1,4 @@
-#![warn(
-    missing_debug_implementations,
-    missing_docs,
-    unreachable_pub
-)]
+#![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 //! Data garbling crate
 //!
@@ -24,7 +20,10 @@
 //! ```
 
 mod garble;
-pub use crate::garble::{Garble, NoGarble};
+pub use crate::garble::Garble;
+
+mod nogarble;
+pub use crate::nogarble::NoGarble;
 
 mod garbler;
 pub use crate::garbler::Garbler;
