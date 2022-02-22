@@ -1,6 +1,37 @@
 use crate::{Garbler, NoGarble};
 use paste::paste;
 
+// TODO:
+// - tuples
+// - non-zero
+// - atomics
+// - CString
+// - CStr
+// - &str
+// - &[u8]
+// - PhantomData
+// - BinaryHeap
+// - BTreeSet
+// - BTreeMap
+// - HashSet
+// - HashMap
+// - LinkedList
+// - VecDeque
+// - IpAddr
+// - Ipv4Addr
+// - Ipv6Addr
+// - SocketAddr
+// - SocketAddrV4
+// - SocketAddrV6
+// - &Path
+// - PathBuf
+// - OsString
+// - OsStr
+// - Cow
+// and probably more
+//
+// see https://docs.rs/serde/latest/serde/trait.Deserialize.html for inspiration
+
 /// Trait for values that can be garbled
 pub trait Garble<'g>: Sized {
     /// Output type after a garbling
@@ -36,7 +67,7 @@ impl_type!(
 impl<'g, T> Garble<'g> for NoGarble<T> {
     type Output = T;
 
-    fn garble<G>(self, _garble: &mut G) -> Self::Output
+    fn garble<G>(self, _garbler: &mut G) -> Self::Output
     where
         G: Garbler<'g>,
     {
@@ -50,11 +81,11 @@ where
 {
     type Output = Option<T::Output>;
 
-    fn garble<G>(self, garble: &mut G) -> Self::Output
+    fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
         G: Garbler<'g>,
     {
-        self.map(|v| v.garble(garble))
+        self.map(|v| v.garble(garbler))
     }
 }
 
@@ -65,13 +96,13 @@ where
 {
     type Output = Result<T::Output, E::Output>;
 
-    fn garble<G>(self, garble: &mut G) -> Self::Output
+    fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
         G: Garbler<'g>,
     {
         match self {
-            Ok(v) => Ok(v.garble(garble)),
-            Err(e) => Err(e.garble(garble)),
+            Ok(v) => Ok(v.garble(garbler)),
+            Err(e) => Err(e.garble(garbler)),
         }
     }
 }
@@ -82,10 +113,38 @@ where
 {
     type Output = Vec<T::Output>;
 
-    fn garble<G>(self, garble: &mut G) -> Self::Output
+    fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
         G: Garbler<'g>,
     {
-        self.into_iter().map(|v| v.garble(garble)).collect()
+        self.into_iter().map(|v| v.garble(garbler)).collect()
+    }
+}
+
+impl<'g, T, const N: usize> Garble<'g> for [T; N]
+where
+    T: Garble<'g>,
+{
+    type Output = [T::Output; N];
+
+    fn garble<G>(self, garbler: &mut G) -> Self::Output
+    where
+        G: Garbler<'g>,
+    {
+        self.map(|v| v.garble(garbler))
+    }
+}
+
+impl<'g, T> Garble<'g> for &'g T
+where
+    T: Garble<'g> + Clone,
+{
+    type Output = T::Output;
+
+    fn garble<G>(self, garbler: &mut G) -> Self::Output
+    where
+        G: Garbler<'g>,
+    {
+        self.clone().garble(garbler)
     }
 }
