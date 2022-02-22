@@ -1,0 +1,21 @@
+[package]
+name = "garble"
+description = "Utilities to slightly modify data for fault injection"
+version = "0.0.1"
+edition = "2021"
+authors = ["nicolas.moutschen@gmail.com"]
+license = "MIT"
+repository = "https://github.com/nmoutschen/garble"
+readme = "../README.md"
+
+[dependencies]
+paste = "1.0"
+rand = { version = "0.8", optional = true }
+
+[features]
+default = ["simple"]
+simple = ["rand"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
