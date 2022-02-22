@@ -1,3 +1,9 @@
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    unreachable_pub
+)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Data garbling crate
 //!
 //! The purpose of this crate is to provide a way to slightly modify data in

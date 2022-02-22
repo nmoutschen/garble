@@ -10,11 +10,12 @@ pub trait Garbler<'g, T>: Sized
 where
     T: Garble<'g>,
 {
-    fn garble(&mut self, value: T) -> T;
+    /// Garble the data
+    fn garble(&mut self, value: T) -> T::Output;
 }
 
 impl<'g, T, G> Garbler<'g, NoGarble<T>> for G {
-    fn garble(&mut self, value: NoGarble<T>) -> NoGarble<T> {
-        value
+    fn garble(&mut self, value: NoGarble<T>) -> T {
+        value.0
     }
 }

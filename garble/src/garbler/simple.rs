@@ -5,12 +5,14 @@ use rand::prelude::*;
 ///
 /// This will garble data randomly based on the given rate.
 #[cfg_attr(docsrs, doc(cfg(feature = "simple")))]
+#[derive(Debug)]
 pub struct SimpleGarbler {
     rate: f64,
     rng: ThreadRng,
 }
 
 impl SimpleGarbler {
+    /// Create a new [`SimpleGarbler`] with the given rate
     pub fn new(rate: f64) -> Self {
         Self {
             rate,

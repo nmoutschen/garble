@@ -2,8 +2,12 @@ use crate::Garbler;
 
 /// Trait for values that can be garbled
 pub trait Garble<'g>: Sized {
+    /// Output type after a garbling
+    /// 
+    /// In most cases, this will be the same as the input type.
     type Output;
 
+    /// Garble the data with the given garbler
     fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
         G: Garbler<'g, Self>;
@@ -30,7 +34,8 @@ impl_garble!(
 );
 
 /// Wrapper for a value that shouldn't be garbled
-pub struct NoGarble<T>(pub T);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoGarble<T>(pub(crate) T);
 
 impl<T> std::ops::Deref for NoGarble<T> {
     type Target = T;
