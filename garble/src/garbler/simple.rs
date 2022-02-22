@@ -71,54 +71,83 @@ mod tests {
     use paste::paste;
 
     macro_rules! test_values {
-        ($($t:ty => $v:expr),*) => {
+        ($($t:ty => ($s:ident, $v:expr)),*) => {
             $(paste! {
-                #[test]
-                fn [<test_0pc_ $t>]() {
-                    let mut garbler = SimpleGarbler::new(0.0);
-                    let value = $v.garble(&mut garbler);
-                    assert_eq!(value, $v);
-                }
+                mod [<$t _ $s>] {
+                    use super::*;
 
-                #[test]
-                fn [<test_100pc_ $t>]() {
-                    let mut garbler = SimpleGarbler::new(1.0);
-                    let value = $v.garble(&mut garbler);
-                    assert_ne!(value, $v);
-                }
+                    #[test]
+                    fn [<test_0pc>]() {
+                        // GIVEN a SimpleGarbler with a rate of 0%
+                        let mut garbler = SimpleGarbler::new(0.0);
+                        // WHEN we garble a value
+                        let value = $v.garble(&mut garbler);
+                        // THEN the value should be the same as the original
+                        assert_eq!(value, $v);
+                    }
 
-                #[test]
-                fn [<test_0pc_nogarble_ $t>]() {
-                    let mut garbler = SimpleGarbler::new(0.0);
-                    let value = NoGarble($v).garble(&mut garbler);
-                    assert_eq!(value, $v);
-                }
+                    #[test]
+                    fn [<test_100pc>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(1.0);
+                        // WHEN we garble a value
+                        let value = $v.garble(&mut garbler);
+                        // THEN the value should be different
+                        assert_ne!(value, $v);
+                    }
 
-                #[test]
-                fn [<test_100pc_nogarble_ $t>]() {
-                    let mut garbler = SimpleGarbler::new(100.0);
-                    let value = NoGarble($v).garble(&mut garbler);
-                    assert_eq!(value, $v);
+                    #[test]
+                    fn [<test_100pc_nogarble>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(100.0);
+                        // WHEN we garble a non-garblable value
+                        let value = NoGarble($v).garble(&mut garbler);
+                        // THEN the value should be the same as the original
+                        assert_eq!(value, $v);
+                    }
                 }
             })*
         }
     }
 
     test_values!(
-        bool => false,
-        u8 => 0,
-        u16 => 0,
-        u32 => 0,
-        u64 => 0,
-        u128 => 0,
-        usize => 0,
-        i8 => 0,
-        i16 => 0,
-        i32 => 0,
-        i64 => 0,
-        i128 => 0,
-        isize => 0,
-        f32 => 0.0,
-        f64 => 0.0
+        bool => (false, false),
+        bool => (true, true),
+        u8 => (min, u8::MIN),
+        u8 => (max, u8::MAX),
+        u16 => (min, u8::MIN),
+        u16 => (max, u16::MAX),
+        u32 => (min, u32::MIN),
+        u32 => (max, u32::MAX),
+        u64 => (min, u64::MIN),
+        u64 => (max, u64::MAX),
+        u128 => (min, u128::MIN),
+        u128 => (max, u128::MAX),
+        usize => (min, usize::MIN),
+        usize => (max, usize::MAX),
+        i8 => (min, i8::MIN),
+        i8 => (max, i8::MAX),
+        i8 => (zero, 0),
+        i16 => (min, i16::MIN),
+        i16 => (max, i16::MAX),
+        i16 => (zero, 0),
+        i32 => (min, i32::MIN),
+        i32 => (max, i32::MAX),
+        i32 => (zero, 0),
+        i64 => (min, i64::MIN),
+        i64 => (max, i64::MAX),
+        i64 => (zero, 0),
+        i128 => (min, i128::MIN),
+        i128 => (max, i128::MAX),
+        i128 => (zero, 0),
+        isize => (min, isize::MIN),
+        isize => (max, isize::MAX),
+        isize => (zero, 0),
+        f32 => (min, f32::MIN),
+        f32 => (max, f32::MAX),
+        f32 => (zero, 0.0),
+        f64 => (min, f64::MIN),
+        f64 => (max, f64::MAX),
+        f64 => (zero, 0.0)
     );
 }
