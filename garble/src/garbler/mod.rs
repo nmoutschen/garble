@@ -30,7 +30,17 @@ pub trait Garbler<'g>: Sized {
     }
 
     garble_func!(
-        bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64, char,
-        String
+        // Other types
+        bool, char,
+        // Unsigned integers
+        u8, u16, u32, u64, u128, usize,
+        // Signed integers
+        i8, i16, i32, i64, i128, isize,
+        // Floats
+        f32, f64
     );
+
+    fn garble_str<T>(&mut self, value: T) -> String
+    where
+        T: AsRef<str>;
 }

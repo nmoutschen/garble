@@ -22,6 +22,8 @@
 mod garble;
 pub use crate::garble::Garble;
 
+mod impls;
+
 mod nogarble;
 pub use crate::nogarble::NoGarble;
 

@@ -65,8 +65,12 @@ impl<'g> Garbler<'g> for SimpleGarbler {
         self.should_garble() != value
     }
 
-    fn garble_string(&mut self, value: String) -> String {
+    fn garble_str<T>(&mut self, value: T) -> String
+    where
+        T: AsRef<str>,
+    {
         value
+            .as_ref()
             .chars()
             .map(|c| {
                 if self.should_garble() {
@@ -85,9 +89,9 @@ mod tests {
     use crate::{Garble, NoGarble};
     use paste::paste;
 
-    macro_rules! test_values {
-        ($($t:ty => ($s:ident, $v:expr)),*) => {
-            $(paste! {
+    macro_rules! test_case {
+        ($t:ty => ($s:ident, $v:expr)) => {
+            paste! {
                 mod [<$t:lower _ $s>] {
                     use super::*;
 
@@ -128,7 +132,25 @@ mod tests {
                         // WHEN we garble an option
                         let value = Some($v).garble(&mut garbler);
                         // THEN the value should be different
-                        assert_ne!(value, Some($v));
+                        if let Some(value) = value {
+                            assert_ne!(value, $v);
+                        } else {
+                            assert!(false, "value should not be None");
+                        }
+                    }
+
+                    #[test]
+                    fn [<test_100pc_result>]() {
+                        // GIVEN a SimpleGarbler with a rate of 100%
+                        let mut garbler = SimpleGarbler::new(1.0);
+                        // WHEN we garble a result
+                        let value = Ok::<_, ()>($v).garble(&mut garbler);
+                        // THEN the value should be different
+                        if let Ok(value) = value {
+                            assert_ne!(value, $v);
+                        } else {
+                            assert!(false, "value should not be Err");
+                        }
                     }
 
                     #[test]
@@ -151,51 +173,61 @@ mod tests {
                         assert_ne!(value, $v);
                     }
                 }
-            })*
+            }
         }
     }
 
-    test_values!(
-        bool => (false, false),
-        bool => (true, true),
-        u8 => (min, u8::MIN),
-        u8 => (max, u8::MAX),
-        u16 => (min, u8::MIN),
-        u16 => (max, u16::MAX),
-        u32 => (min, u32::MIN),
-        u32 => (max, u32::MAX),
-        u64 => (min, u64::MIN),
-        u64 => (max, u64::MAX),
-        u128 => (min, u128::MIN),
-        u128 => (max, u128::MAX),
-        usize => (min, usize::MIN),
-        usize => (max, usize::MAX),
-        i8 => (min, i8::MIN),
-        i8 => (max, i8::MAX),
-        i8 => (zero, 0),
-        i16 => (min, i16::MIN),
-        i16 => (max, i16::MAX),
-        i16 => (zero, 0),
-        i32 => (min, i32::MIN),
-        i32 => (max, i32::MAX),
-        i32 => (zero, 0),
-        i64 => (min, i64::MIN),
-        i64 => (max, i64::MAX),
-        i64 => (zero, 0),
-        i128 => (min, i128::MIN),
-        i128 => (max, i128::MAX),
-        i128 => (zero, 0),
-        isize => (min, isize::MIN),
-        isize => (max, isize::MAX),
-        isize => (zero, 0),
-        f32 => (min, f32::MIN),
-        f32 => (max, f32::MAX),
-        f32 => (zero, 0.0),
-        f64 => (min, f64::MIN),
-        f64 => (max, f64::MAX),
-        f64 => (zero, 0.0),
-        char => (a, 'a'),
-        char => (carb, '🦀'),
-        String => (short, String::from("hello, world"))
-    );
+    // Boolean tests
+    test_case! { bool => (false, false) }
+    test_case! { bool => (true, true) }
+
+    // Unsigned integers
+    test_case! { u8 => (min, u8::MIN) }
+    test_case! { u8 => (max, u8::MAX) }
+    test_case! { u16 => (min, u8::MIN) }
+    test_case! { u16 => (max, u16::MAX) }
+    test_case! { u32 => (min, u32::MIN) }
+    test_case! { u32 => (max, u32::MAX) }
+    test_case! { u64 => (min, u64::MIN) }
+    test_case! { u64 => (max, u64::MAX) }
+    test_case! { u128 => (min, u128::MIN) }
+    test_case! { u128 => (max, u128::MAX) }
+    test_case! { usize => (min, usize::MIN) }
+    test_case! { usize => (max, usize::MAX) }
+
+    // Signed integers
+    test_case! { i8 => (min, i8::MIN) }
+    test_case! { i8 => (max, i8::MAX) }
+    test_case! { i8 => (zero, 0) }
+    test_case! { i16 => (min, i16::MIN) }
+    test_case! { i16 => (max, i16::MAX) }
+    test_case! { i16 => (zero, 0) }
+    test_case! { i32 => (min, i32::MIN) }
+    test_case! { i32 => (max, i32::MAX) }
+    test_case! { i32 => (zero, 0) }
+    test_case! { i64 => (min, i64::MIN) }
+    test_case! { i64 => (max, i64::MAX) }
+    test_case! { i64 => (zero, 0) }
+    test_case! { i128 => (min, i128::MIN) }
+    test_case! { i128 => (max, i128::MAX) }
+    test_case! { i128 => (zero, 0) }
+    test_case! { isize => (min, isize::MIN) }
+    test_case! { isize => (max, isize::MAX) }
+    test_case! { isize => (zero, 0) }
+
+    // Floating point numbers
+    test_case! { f32 => (min, f32::MIN) }
+    test_case! { f32 => (max, f32::MAX) }
+    test_case! { f32 => (zero, 0.0) }
+    test_case! { f64 => (min, f64::MIN) }
+    test_case! { f64 => (max, f64::MAX) }
+    test_case! { f64 => (zero, 0.0) }
+
+    // Characters
+    test_case! { char => (a, 'a') }
+    test_case! { char => (carb, '🦀') }
+
+    // String types
+    test_case! { String => (short, String::from("hello, world")) }
+    test_case! { str => (shprt, "hello, world") }
 }
