@@ -203,7 +203,7 @@ where
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
 
-impl<'g, T> Garble<'g> for &'g T
+impl<'g, T> Garble<'g> for &T
 where
     T: Garble<'g> + Clone,
 {
