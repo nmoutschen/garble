@@ -27,39 +27,35 @@ impl SimpleGarbler {
 }
 
 macro_rules! impl_func {
-    ($($t:ty => $v:expr),*) => {
-        $(paste! {
+    ($t:ty) => {
+        paste! {
             fn [<garble_ $t:lower>](&mut self, value: $t) -> $t {
                 if self.should_garble() {
-                    match self.rng.gen() {
-                        v if v == value => $v(value),
-                        v => v,
-                    }
+                    self.rng.gen()
                 } else {
                     value
                 }
             }
-        })*
+        }
     }
 }
 impl<'g> Garbler<'g> for SimpleGarbler {
-    impl_func!(
-        char => |v| std::char::from_u32(v as u32 + 1).unwrap_or('g'),
-        u8 => |v| v + 1,
-        u16 => |v| v + 1,
-        u32 => |v| v + 1,
-        u64 => |v| v + 1,
-        u128 => |v| v + 1,
-        usize => |v| v + 1,
-        i8 => |v| v + 1,
-        i16 => |v| v + 1,
-        i32 => |v| v + 1,
-        i64 => |v| v + 1,
-        i128 => |v| v + 1,
-        isize => |v| v + 1,
-        f32 => |v: f32| v.powf(2.0),
-        f64 => |v: f64| v.powf(2.0)
-    );
+
+    impl_func! { char }
+    impl_func! { u8 }
+    impl_func! { u16 }
+    impl_func! { u32 }
+    impl_func! { u64 }
+    impl_func! { u128 }
+    impl_func! { usize }
+    impl_func! { i8 }
+    impl_func! { i16 }
+    impl_func! { i32 }
+    impl_func! { i64 }
+    impl_func! { i128 }
+    impl_func! { isize }
+    impl_func! { f32 }
+    impl_func! { f64 }
 
     fn garble_bool(&mut self, value: bool) -> bool {
         self.should_garble() != value
@@ -87,7 +83,8 @@ impl<'g> Garbler<'g> for SimpleGarbler {
 mod tests {
     use super::*;
     use crate::{Garble, NoGarble};
-    use paste::paste;
+
+    // TODO: tests can be brittle here
 
     macro_rules! test_case {
         ($t:ty => ($s:ident, $v:expr)) => {
