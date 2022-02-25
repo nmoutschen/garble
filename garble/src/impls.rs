@@ -290,6 +290,41 @@ impl_garble!(net::IpAddr => (
 ));
 
 ///////////////////////////////////////////////////////////////////////////////
+// Garble implementations for sockets
+
+impl_garble!(net::SocketAddrV4 => (
+    net::SocketAddrV4,
+    (|s: Self, garbler: &mut G| {
+        net::SocketAddrV4::new(
+            s.ip().garble(garbler),
+            s.port().garble(garbler),
+        )
+    })
+));
+
+impl_garble!(net::SocketAddrV6 => (
+    net::SocketAddrV6,
+    (|s: Self, garbler: &mut G| {
+        net::SocketAddrV6::new(
+            s.ip().garble(garbler),
+            s.port().garble(garbler),
+            s.flowinfo(),
+            s.scope_id(),
+        )
+    })
+));
+
+impl_garble!(net::SocketAddr => (
+    net::SocketAddr,
+    (|s: Self, garbler: &mut G| {
+        match s {
+            net::SocketAddr::V4(addr) => net::SocketAddr::V4(addr.garble(garbler)),
+            net::SocketAddr::V6(addr) => net::SocketAddr::V6(addr.garble(garbler)),
+        }
+    })
+));
+
+///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
 
 impl<'g, T> Garble for &T
