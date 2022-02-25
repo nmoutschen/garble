@@ -330,7 +330,7 @@ impl_garble!(net::SocketAddr => (
 impl_garble!(ffi::CString => (
     ffi::CString,
     (|s: Self, garbler: &mut G| {
-        let bytes = s.to_bytes().into_iter().map(|b| match b.garble(garbler) {
+        let bytes = s.to_bytes().iter().map(|b| match b.garble(garbler) {
             // We cannot have nul bytes in a C string, so we replace them with
             // a question mark.
             0 => 0x3F,
@@ -490,8 +490,14 @@ mod tests {
     test_nonzero!(u16, num::NonZeroU16::new(0xFFFFu16).unwrap());
     test_nonzero!(u32, num::NonZeroU32::new(0xFFFF_FFFFu32).unwrap());
     test_nonzero!(u64, num::NonZeroU64::new(0xFFFF_FFFF_FFFF_FFFFu64).unwrap());
-    test_nonzero!(u128, num::NonZeroU128::new(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFu128).unwrap());
-    test_nonzero!(usize, num::NonZeroUsize::new(0xFFFF_FFFF_FFFF_FFFFusize).unwrap());
+    test_nonzero!(
+        u128,
+        num::NonZeroU128::new(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFu128).unwrap()
+    );
+    test_nonzero!(
+        usize,
+        num::NonZeroUsize::new(0xFFFF_FFFF_FFFF_FFFFusize).unwrap()
+    );
 
     // Signed integers
     test_passthrough!(i8, -0x7Fi8);
@@ -508,9 +514,18 @@ mod tests {
     test_nonzero!(i8, num::NonZeroI8::new(-0x7Fi8).unwrap());
     test_nonzero!(i16, num::NonZeroI16::new(-0x7FFFi16).unwrap());
     test_nonzero!(i32, num::NonZeroI32::new(-0x7FFF_FFFFi32).unwrap());
-    test_nonzero!(i64, num::NonZeroI64::new(-0x7FFF_FFFF_FFFF_FFFFi64).unwrap());
-    test_nonzero!(i128, num::NonZeroI128::new(-0x7FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFi128).unwrap());
-    test_nonzero!(isize, num::NonZeroIsize::new(-0x7FFF_FFFF_FFFF_FFFFisize).unwrap());
+    test_nonzero!(
+        i64,
+        num::NonZeroI64::new(-0x7FFF_FFFF_FFFF_FFFFi64).unwrap()
+    );
+    test_nonzero!(
+        i128,
+        num::NonZeroI128::new(-0x7FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFi128).unwrap()
+    );
+    test_nonzero!(
+        isize,
+        num::NonZeroIsize::new(-0x7FFF_FFFF_FFFF_FFFFisize).unwrap()
+    );
 
     // Floating point numbers
     test_passthrough!(f32, 0.0_f32);
@@ -518,8 +533,16 @@ mod tests {
 
     // Strings
     test_passthrough!(str, "Hello, world!", String::from("Hello, world!"));
-    test_passthrough!(string, String::from("Hello, world!"), String::from("Hello, world!"));
-    test_passthrough!(borrowed_string, &String::from("Hello, world!"), String::from("Hello, world!"));
+    test_passthrough!(
+        string,
+        String::from("Hello, world!"),
+        String::from("Hello, world!")
+    );
+    test_passthrough!(
+        borrowed_string,
+        &String::from("Hello, world!"),
+        String::from("Hello, world!")
+    );
 
     // Bytes
     test_passthrough!(bytes, b"Hello, world!", b"Hello, world!".to_owned());
@@ -529,7 +552,24 @@ mod tests {
     test_passthrough!(ipv4, net::Ipv4Addr::new(127, 0, 0, 1));
     test_passthrough!(ipv6, net::Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0));
 
+    // Sockets
+    test_passthrough!(
+        socket_ipv4,
+        net::SocketAddr::new(net::IpAddr::V4(net::Ipv4Addr::new(127, 0, 0, 1)), 8080)
+    );
+    test_passthrough!(
+        socket_ipv6,
+        net::SocketAddr::new(
+            net::IpAddr::V6(net::Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0)),
+            8080
+        )
+    );
+
     // CStrings
     test_passthrough!(cstring, ffi::CString::new("Hello, world!").unwrap());
-    test_passthrough!(borrowed_cstring, &ffi::CString::new("Hello, world!").unwrap(), ffi::CString::new("Hello, world!").unwrap());
+    test_passthrough!(
+        borrowed_cstring,
+        &ffi::CString::new("Hello, world!").unwrap(),
+        ffi::CString::new("Hello, world!").unwrap()
+    );
 }
