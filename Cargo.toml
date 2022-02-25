@@ -1,4 +1,5 @@
 [workspace]
 members = [
     "garble",
+    "garble_derive",
 ]
