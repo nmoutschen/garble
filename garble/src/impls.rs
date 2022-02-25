@@ -8,17 +8,17 @@ macro_rules! impl_garble {
     // Types with generics
     ($type:ty[$($generics:expr),+] => ($output:ty, $closure:tt)) => {
         paste! {
-            impl<'g, $($generics),+> Garble<'g> for $type<$($generics),+>
+            impl<'g, $($generics),+> Garble for $type<$($generics),+>
             where
                 $(
-                    $generics: Garble<'g>,
+                    $generics: Garble,
                 )+
             {
                 type Output = $output<$($generics::Output),+>;
 
                 fn garble<G>(self, garbler: &mut G) -> Self::Output
                 where
-                    G: Garbler<'g>,
+                    G: Garbler,
                 {
                     ($closure)(self, garbler)
                 }
@@ -28,12 +28,12 @@ macro_rules! impl_garble {
     // Types without generics
     ($type:ty => ($output:ty, $closure:tt)) => {
         paste! {
-            impl<'g> Garble<'g> for $type {
+            impl Garble for $type {
                 type Output = $output;
 
                 fn garble<G>(self, garbler: &mut G) -> Self::Output
                 where
-                    G: Garbler<'g>,
+                    G: Garbler,
                 {
                     ($closure)(self, garbler)
                 }
@@ -122,22 +122,22 @@ impl_garble_numeric!(isize, NZ(num::NonZeroIsize), AT(atomic::AtomicIsize));
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for empty types
 
-impl<'g> Garble<'g> for () {
+impl Garble for () {
     type Output = ();
 
     fn garble<G>(self, _garbler: &mut G) -> Self::Output
     where
-        G: Garbler<'g>,
+        G: Garbler,
     {
     }
 }
 
-impl<'g, T> Garble<'g> for marker::PhantomData<T> {
+impl<'g, T> Garble for marker::PhantomData<T> {
     type Output = marker::PhantomData<T>;
 
     fn garble<G>(self, _garbler: &mut G) -> Self::Output
     where
-        G: Garbler<'g>,
+        G: Garbler,
     {
         self
     }
@@ -148,12 +148,12 @@ impl<'g, T> Garble<'g> for marker::PhantomData<T> {
 
 // For NoGarble, we can ignore if the value is [`Garble`] or not, as it will
 // never be garbled.
-impl<'g, T> Garble<'g> for NoGarble<T> {
+impl<'g, T> Garble for NoGarble<T> {
     type Output = T;
 
     fn garble<G>(self, _garbler: &mut G) -> Self::Output
     where
-        G: Garbler<'g>,
+        G: Garbler,
     {
         self.0
     }
@@ -177,15 +177,15 @@ impl_garble!(Result[T, E] => (
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementations for arrays and slices
 
-impl<'g, T, const N: usize> Garble<'g> for [T; N]
+impl<'g, T, const N: usize> Garble for [T; N]
 where
-    T: Garble<'g>,
+    T: Garble,
 {
     type Output = [T::Output; N];
 
     fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
-        G: Garbler<'g>,
+        G: Garbler,
     {
         self.map(|v| v.garble(garbler))
     }
@@ -212,17 +212,17 @@ impl_garble_sequence! { collections::LinkedList }
 macro_rules! impl_garble_map {
     ($type:ty, $bounds:expr) => {
         paste! {
-            impl<'g, K, V> Garble<'g> for $type<K, V>
+            impl<'g, K, V> Garble for $type<K, V>
             where
-                K: Garble<'g>,
-                V: Garble<'g>,
+                K: Garble,
+                V: Garble,
                 K::Output: $bounds,
             {
                 type Output = $type<K::Output, V::Output>;
 
                 fn garble<G>(self, garbler: &mut G) -> Self::Output
                 where
-                    G: Garbler<'g>,
+                    G: Garbler,
                 {
                     self.into_iter().map(|(k, v)| (k.garble(garbler), v.garble(garbler))).collect()
                 }
@@ -239,16 +239,16 @@ impl_garble_map!(collections::HashMap, hash::Hash + Eq);
 macro_rules! impl_garble_set {
     ($type:ty, $bounds:expr) => {
         paste! {
-            impl<'g, T> Garble<'g> for $type<T>
+            impl<'g, T> Garble for $type<T>
             where
-                T: Garble<'g>,
+                T: Garble,
                 T::Output: $bounds,
             {
                 type Output = $type<T::Output>;
 
                 fn garble<G>(self, garbler: &mut G) -> Self::Output
                 where
-                    G: Garbler<'g>,
+                    G: Garbler,
                 {
                     self.into_iter().map(|v| v.garble(garbler)).collect()
                 }
@@ -263,15 +263,15 @@ impl_garble_set!(collections::BinaryHeap, Ord);
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
 
-impl<'g, T> Garble<'g> for &T
+impl<'g, T> Garble for &T
 where
-    T: Garble<'g> + Clone,
+    T: Garble + Clone,
 {
     type Output = T::Output;
 
     fn garble<G>(self, garbler: &mut G) -> Self::Output
     where
-        G: Garbler<'g>,
+        G: Garbler,
     {
         self.clone().garble(garbler)
     }
@@ -294,7 +294,7 @@ mod tests {
         }
     }
 
-    impl<'g> Garbler<'g> for PassGarbler {
+    impl Garbler for PassGarbler {
         impl_func! { char, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64, bool }
 
         fn garble_str<T>(&mut self, value: T) -> String

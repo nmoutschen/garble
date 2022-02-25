@@ -18,13 +18,13 @@ macro_rules! garble_func {
 
 /// Trait for something that can garble data
 #[allow(missing_docs)]
-pub trait Garbler<'g>: Sized {
+pub trait Garbler: Sized {
     /// Convenience function for garbling a value
     ///
     /// This is equivalent to using [`Garble::garble`] and passing this `Garbler`.
     fn garble<T>(&mut self, value: T) -> T::Output
     where
-        T: Garble<'g>,
+        T: Garble,
     {
         value.garble(self)
     }

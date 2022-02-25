@@ -39,7 +39,7 @@ macro_rules! impl_func {
         }
     };
 }
-impl<'g> Garbler<'g> for SimpleGarbler {
+impl Garbler for SimpleGarbler {
     impl_func! { char }
     impl_func! { u8 }
     impl_func! { u16 }
