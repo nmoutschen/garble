@@ -16,7 +16,10 @@ enum MyEnum {
 fn test_struct_0pc() {
     let mut garbler = SimpleGarbler::new(0.0);
 
-    let s = MyStruct { a: 128, b: "hello".to_string() };
+    let s = MyStruct {
+        a: 128,
+        b: "hello".to_string(),
+    };
     let s_garbled = s.clone().garble(&mut garbler);
 
     assert_eq!(s.a, s_garbled.a);
@@ -27,7 +30,10 @@ fn test_struct_0pc() {
 fn test_struct_100pc() {
     let mut garbler = SimpleGarbler::new(1.0);
 
-    let s = MyStruct { a: 128, b: "hello".to_string() };
+    let s = MyStruct {
+        a: 128,
+        b: "hello".to_string(),
+    };
     let s_garbled = s.clone().garble(&mut garbler);
 
     assert_ne!(s.a, s_garbled.a);

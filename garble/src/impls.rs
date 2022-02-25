@@ -1,7 +1,7 @@
 use crate::{Garble, Garbler, NoGarble};
 use core::num;
 use paste::paste;
-use std::{collections, hash, marker, sync::atomic};
+use std::{collections, hash, marker, net, sync::atomic};
 
 /// Macro for creating [`Garble`] implementations with a closure.
 macro_rules! impl_garble {
@@ -259,6 +259,35 @@ macro_rules! impl_garble_set {
 impl_garble_set!(collections::BTreeSet, Ord);
 impl_garble_set!(collections::HashSet, hash::Hash + Eq);
 impl_garble_set!(collections::BinaryHeap, Ord);
+
+///////////////////////////////////////////////////////////////////////////////
+// Garble implementation for IP addresses
+
+impl_garble!(net::Ipv4Addr => (
+    net::Ipv4Addr,
+    (|s: Self, garbler: &mut G| {
+        let [a, b, c, d] = s.octets().garble(garbler);
+        net::Ipv4Addr::new(a, b, c, d)
+    })
+));
+
+impl_garble!(net::Ipv6Addr => (
+    net::Ipv6Addr,
+    (|s: Self, garbler: &mut G| {
+        let [a, b, c, d, e, f, g, h] = s.segments().garble(garbler);
+        net::Ipv6Addr::new(a, b, c, d, e, f, g, h)
+    })
+));
+
+impl_garble!(net::IpAddr => (
+    net::IpAddr,
+    (|s: Self, garbler: &mut G| {
+        match s {
+            net::IpAddr::V4(addr) => net::IpAddr::V4(addr.garble(garbler)),
+            net::IpAddr::V6(addr) => net::IpAddr::V6(addr.garble(garbler)),
+        }
+    })
+));
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
