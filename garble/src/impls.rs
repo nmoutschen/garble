@@ -1,12 +1,32 @@
 use crate::{Garble, Garbler, NoGarble};
-use paste::paste;
 use core::num;
-use std::sync::atomic;
+use paste::paste;
+use std::{collections, hash, sync::atomic};
 
-/// Macro for creating [`Garble`] implementations for a type using a [`Garbler`] function
-/// directly
-macro_rules! impl_garble_base {
-    ($type:expr => ($output:expr, $func:expr)) => {
+/// Macro for creating [`Garble`] implementations with a closure.
+macro_rules! impl_garble {
+    // Types with generics
+    ($type:ty[$($generics:expr),+] => ($output:ty, $closure:tt)) => {
+        paste! {
+            impl<'g, $($generics),+> Garble<'g> for $type<$($generics),+>
+            where
+                $(
+                    $generics: Garble<'g>,
+                )+
+            {
+                type Output = $output<$($generics::Output),+>;
+
+                fn garble<G>(self, garbler: &mut G) -> Self::Output
+                where
+                    G: Garbler<'g>,
+                {
+                    ($closure)(self, garbler)
+                }
+            }
+        }
+    };
+    // Types without generics
+    ($type:ty => ($output:ty, $closure:tt)) => {
         paste! {
             impl<'g> Garble<'g> for $type {
                 type Output = $output;
@@ -15,95 +35,89 @@ macro_rules! impl_garble_base {
                 where
                     G: Garbler<'g>,
                 {
-                    garbler.[<garble_ $func>](self)
+                    ($closure)(self, garbler)
                 }
             }
         }
-    }
+    };
+}
+
+/// Macro for creating [`Garble`] implementations for primitive types.
+macro_rules! impl_garble_primitive {
+    ($type:ty) => {
+        impl_garble_primitive!($type => ($type, $type));
+    };
+    ($type:ty => ($output:ty, $func:ty)) => {
+        impl_garble!($type => (
+            $output,
+            (paste! { |s: Self, g: &mut G|g.[<garble_ $func>](s) })
+        ));
+    };
 }
 
 /// Macro for creating [`Garble`] implementations for NonZero types
 macro_rules! impl_garble_nonzero {
-    ($primitive:expr, $nonzero:expr) => {
-        paste! {
-            impl<'g> Garble<'g> for $nonzero {
-                type Output = $nonzero;
-                
-                fn garble<G>(self, garbler: &mut G) -> Self::Output
-                where
-                    G: Garbler<'g>,
-                {
-                    match garbler.[<garble_ $primitive:lower>](self.get()) {
-                        0 => $nonzero::new(1).unwrap(),
-                        v => $nonzero::new(v).unwrap(),
-                    }
+    ($primitive:ty, $nonzero:ty) => {
+        impl_garble!($nonzero => (
+            $nonzero,
+            (paste! {
+                |s: Self, g: &mut G| match g.[<garble_ $primitive>](s.get()) {
+                    0 => $nonzero::new(1).unwrap(),
+                    n => $nonzero::new(n).unwrap(),
                 }
-            }
-        }
+            })
+        ));
     }
 }
 
 /// Macro for creating [`Garble`] implementations for Atomic types
 macro_rules! impl_garble_atomic {
-    ($primitive:expr, $atomic:expr) => {
-        paste! {
-            impl<'g> Garble<'g> for $atomic {
-                type Output = $atomic;
-            
-                fn garble<G>(self, garbler: &mut G) -> Self::Output
-                where
-                    G: Garbler<'g>,
-                {
-                    $atomic::new(garbler.[<garble_ $primitive>](self.into_inner()))
-                }
-            }
-        }
+    ($primitive:ty, $atomic:ty) => {
+        impl_garble!($atomic => (
+            $atomic,
+            (paste! {
+                |s: Self, g: &mut G| $atomic::new(g.[<garble_ $primitive>](s.into_inner()))
+            })
+        ));
     }
 }
 
-/// Macro for creating [`Garble`] implementations
-macro_rules! impl_garble {
-    ($type:expr => ($output:expr, $func:expr)) => {
-        impl_garble_base! { $type => ($output, $func) }
-    };
-
-    ($primitive:expr) => {
-        impl_garble_base! { $primitive => ($primitive, $primitive) }
-    };
-    ($primitive:expr, NZ($nonzero:expr)) => {
-        impl_garble_base! { $primitive => ($primitive, $primitive) }
+/// Macro for creating [`Garble`] implementations for primitive types with
+/// Atomic and NonZero options.
+macro_rules! impl_garble_numeric {
+    ($primitive:ty, NZ($nonzero:ty)) => {
+        impl_garble_primitive! { $primitive => ($primitive, $primitive) }
         impl_garble_nonzero! { $primitive, $nonzero }
     };
-    ($primitive:expr, AT($atomic:expr)) => {
-        impl_garble_base! { $primitive => ($primitive, $primitive) }
+    ($primitive:ty, AT($atomic:ty)) => {
+        impl_garble_primitive! { $primitive => ($primitive, $primitive) }
         impl_garble_atomic! { $primitive, $atomic }
     };
-    ($primitive:expr, NZ($nonzero:expr), AT($atomic:expr)) => {
-        impl_garble_base! { $primitive => ($primitive, $primitive) }
+    ($primitive:ty, NZ($nonzero:ty), AT($atomic:ty)) => {
+        impl_garble_primitive! { $primitive => ($primitive, $primitive) }
         impl_garble_nonzero! { $primitive, $nonzero }
         impl_garble_atomic! { $primitive, $atomic }
     };
 }
 
-impl_garble! { char }
-impl_garble! { f32 }
-impl_garble! { f64 }
-impl_garble! { bool, AT(atomic::AtomicBool) }
-impl_garble! { u8, NZ(num::NonZeroU8), AT(atomic::AtomicU8) }
-impl_garble! { u16, NZ(num::NonZeroU16), AT(atomic::AtomicU16) }
-impl_garble! { u32, NZ(num::NonZeroU32), AT(atomic::AtomicU32) }
-impl_garble! { u64, NZ(num::NonZeroU64), AT(atomic::AtomicU64) }
-impl_garble! { u128, NZ(num::NonZeroU128) }
-impl_garble! { usize, NZ(num::NonZeroUsize), AT(atomic::AtomicUsize) }
-impl_garble! { i8, NZ(num::NonZeroI8), AT(atomic::AtomicI8) }
-impl_garble! { i16, NZ(num::NonZeroI16), AT(atomic::AtomicI16) }
-impl_garble! { i32, NZ(num::NonZeroI32), AT(atomic::AtomicI32) }
-impl_garble! { i64, NZ(num::NonZeroI64), AT(atomic::AtomicI64) }
-impl_garble! { i128, NZ(num::NonZeroI128) }
-impl_garble! { isize, NZ(num::NonZeroIsize), AT(atomic::AtomicIsize) }
-
-impl_garble! { String => (String, str) }
-impl_garble! { &str => (String, str) }
+impl_garble_primitive!(char);
+impl_garble_primitive!(f32);
+impl_garble_primitive!(f64);
+impl_garble_primitive!(String => (String, str));
+impl_garble_primitive!(&str => (String, str));
+impl_garble_numeric!(bool, AT(atomic::AtomicBool));
+impl_garble_numeric!(u8, NZ(num::NonZeroU8), AT(atomic::AtomicU8));
+impl_garble_numeric!(u16, NZ(num::NonZeroU16), AT(atomic::AtomicU16));
+impl_garble_numeric!(u32, NZ(num::NonZeroU32), AT(atomic::AtomicU32));
+impl_garble_numeric!(u64, NZ(num::NonZeroU64), AT(atomic::AtomicU64));
+impl_garble_numeric!(u128, NZ(num::NonZeroU128));
+impl_garble_numeric!(usize, NZ(num::NonZeroUsize), AT(atomic::AtomicUsize));
+impl_garble_numeric!(i8, NZ(num::NonZeroI8), AT(atomic::AtomicI8));
+impl_garble_numeric!(i16, NZ(num::NonZeroI16), AT(atomic::AtomicI16));
+impl_garble_numeric!(i32, NZ(num::NonZeroI32), AT(atomic::AtomicI32));
+impl_garble_numeric!(i64, NZ(num::NonZeroI64), AT(atomic::AtomicI64));
+impl_garble_numeric!(i128, NZ(num::NonZeroI128));
+impl_garble_numeric!(isize, NZ(num::NonZeroIsize), AT(atomic::AtomicIsize));
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for ()
@@ -115,17 +129,14 @@ impl<'g> Garble<'g> for () {
     where
         G: Garbler<'g>,
     {
-        ()
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementations for wrapping types
 
-/// Garble implementation for [`NoGarble`]
-/// 
-/// For NoGarble, we can ignore if the value is [`Garble`] or not, as it will
-/// never be garbled.
+// For NoGarble, we can ignore if the value is [`Garble`] or not, as it will
+// never be garbled.
 impl<'g, T> Garble<'g> for NoGarble<T> {
     type Output = T;
 
@@ -137,54 +148,23 @@ impl<'g, T> Garble<'g> for NoGarble<T> {
     }
 }
 
-impl<'g, T> Garble<'g> for Option<T>
-where
-    T: Garble<'g>,
-{
-    type Output = Option<T::Output>;
+// Option<T>
+impl_garble!(Option[T] => (
+    Option,
+    (|s: Self, g: &mut G| s.map(|v| v.garble(g)))
+));
 
-    fn garble<G>(self, garbler: &mut G) -> Self::Output
-    where
-        G: Garbler<'g>,
-    {
-        self.map(|v| v.garble(garbler))
-    }
-}
-
-impl<'g, T, E> Garble<'g> for Result<T, E>
-where
-    T: Garble<'g>,
-    E: Garble<'g>,
-{
-    type Output = Result<T::Output, E::Output>;
-
-    fn garble<G>(self, garbler: &mut G) -> Self::Output
-    where
-        G: Garbler<'g>,
-    {
-        match self {
-            Ok(v) => Ok(v.garble(garbler)),
-            Err(e) => Err(e.garble(garbler)),
-        }
-    }
-}
+// Result<T, E>
+impl_garble!(Result[T, E] => (
+    Result,
+    (|s: Self, g: &mut G| match s {
+        Ok(v) => Ok(v.garble(g)),
+        Err(e) => Err(e.garble(g)),
+    })
+));
 
 ///////////////////////////////////////////////////////////////////////////////
-// Garble implementations for arrays, vectors, and slices
-
-impl<'g, T> Garble<'g> for Vec<T>
-where
-    T: Garble<'g>,
-{
-    type Output = Vec<T::Output>;
-
-    fn garble<G>(self, garbler: &mut G) -> Self::Output
-    where
-        G: Garbler<'g>,
-    {
-        self.into_iter().map(|v| v.garble(garbler)).collect()
-    }
-}
+// Garble implementations for arrays and slices
 
 impl<'g, T, const N: usize> Garble<'g> for [T; N]
 where
@@ -199,6 +179,75 @@ where
         self.map(|v| v.garble(garbler))
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Garble implementations for sequences
+
+macro_rules! impl_garble_sequence {
+    ($type:ty) => {
+        impl_garble!($type[T] => (
+            $type,
+            (|s: Self, g: &mut G| s.into_iter().map(|v| v.garble(g)).collect())
+        ));
+    }
+}
+impl_garble_sequence! { Vec }
+impl_garble_sequence! { collections::VecDeque }
+impl_garble_sequence! { collections::LinkedList }
+
+///////////////////////////////////////////////////////////////////////////////
+// Garble implementations for maps
+
+macro_rules! impl_garble_map {
+    ($type:ty, $bounds:expr) => {
+        paste! {
+            impl<'g, K, V> Garble<'g> for $type<K, V>
+            where
+                K: Garble<'g>,
+                V: Garble<'g>,
+                K::Output: $bounds,
+            {
+                type Output = $type<K::Output, V::Output>;
+
+                fn garble<G>(self, garbler: &mut G) -> Self::Output
+                where
+                    G: Garbler<'g>,
+                {
+                    self.into_iter().map(|(k, v)| (k.garble(garbler), v.garble(garbler))).collect()
+                }
+            }
+        }
+    };
+}
+impl_garble_map!(collections::BTreeMap, Ord);
+impl_garble_map!(collections::HashMap, hash::Hash + Eq);
+
+///////////////////////////////////////////////////////////////////////////////
+// Garble implementations for sets
+
+macro_rules! impl_garble_set {
+    ($type:ty, $bounds:expr) => {
+        paste! {
+            impl<'g, T> Garble<'g> for $type<T>
+            where
+                T: Garble<'g>,
+                T::Output: $bounds,
+            {
+                type Output = $type<T::Output>;
+
+                fn garble<G>(self, garbler: &mut G) -> Self::Output
+                where
+                    G: Garbler<'g>,
+                {
+                    self.into_iter().map(|v| v.garble(garbler)).collect()
+                }
+            }
+        }
+    };
+}
+impl_garble_set!(collections::BTreeSet, Ord);
+impl_garble_set!(collections::HashSet, hash::Hash + Eq);
+impl_garble_set!(collections::BinaryHeap, Ord);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
@@ -225,32 +274,17 @@ mod tests {
     struct PassGarbler;
 
     macro_rules! impl_func {
-        ($t:ty) => {
-            paste! {
+        ($($t:ty),*) => {
+            $(paste! {
                 fn [<garble_ $t:lower>](&mut self, value: $t) -> $t {
                     value
                 }
-            }
+            })*
         }
     }
 
     impl<'g> Garbler<'g> for PassGarbler {
-        impl_func! { char }
-        impl_func! { u8 }
-        impl_func! { u16 }
-        impl_func! { u32 }
-        impl_func! { u64 }
-        impl_func! { u128 }
-        impl_func! { usize }
-        impl_func! { i8 }
-        impl_func! { i16 }
-        impl_func! { i32 }
-        impl_func! { i64 }
-        impl_func! { i128 }
-        impl_func! { isize }
-        impl_func! { f32 }
-        impl_func! { f64 }
-        impl_func! { bool }
+        impl_func! { char, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64, bool }
 
         fn garble_str<T>(&mut self, value: T) -> String
         where
@@ -262,22 +296,57 @@ mod tests {
 
     macro_rules! test_passthrough {
         ($name:ident, $value:expr) => {
-            paste! {
-                #[test]
-                fn [<test_passthrough_ $name>]() {
-                    let mut garbler = PassGarbler;
-                    let garbled = $value.garble(&mut garbler);
-                    assert_eq!(garbled, $value);
-                }
-            }
+            test_passthrough!($name, $value, $value);
         };
         ($name:ident, $orig:expr, $expect:expr) => {
             paste! {
                 #[test]
-                fn [<test_passthrough_ $name>]() {
+                fn [<test_ $name>]() {
                     let mut garbler = PassGarbler;
                     let garbled = $orig.garble(&mut garbler);
                     assert_eq!(garbled, $expect);
+                }
+
+                #[test]
+                fn [<test_ $name _option>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = Some($orig).garble(&mut garbler);
+                    assert_eq!(garbled, Some($expect));
+                }
+
+                #[test]
+                fn [<test_ $name _ok>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = Ok::<_, ()>($orig).garble(&mut garbler);
+                    assert_eq!(garbled, Ok($expect));
+                }
+
+                #[test]
+                fn [<test_ $name _err>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = Err::<(), _>($orig).garble(&mut garbler);
+                    assert_eq!(garbled, Err($expect));
+                }
+
+                #[test]
+                fn [<test_ $name _vec>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = vec![$orig].garble(&mut garbler);
+                    assert_eq!(garbled, vec![$expect]);
+                }
+
+                #[test]
+                fn [<test_ $name _vec_option>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = vec![Some($orig)].garble(&mut garbler);
+                    assert_eq!(garbled, vec![Some($expect)]);
+                }
+
+                #[test]
+                fn [<test_ $name _option_vec>]() {
+                    let mut garbler = PassGarbler;
+                    let garbled = Some(vec![$orig]).garble(&mut garbler);
+                    assert_eq!(garbled, Some(vec![$expect]));
                 }
             }
         };
@@ -292,7 +361,7 @@ mod tests {
                     assert_eq!(garbled.into_inner(), $value.into_inner());
                 }
             }
-        }
+        };
     }
     macro_rules! test_nonzero {
         ($name:ident, $value:expr) => {
@@ -304,7 +373,7 @@ mod tests {
                     assert_eq!(garbled.get(), $value.get());
                 }
             }
-        }
+        };
     }
 
     // Character
@@ -351,7 +420,6 @@ mod tests {
     test_nonzero! { i64, num::NonZeroI64::new(-0x7FFF_FFFF_FFFF_FFFFi64).unwrap() }
     test_nonzero! { i128, num::NonZeroI128::new(-0x7FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFi128).unwrap() }
     test_nonzero! { isize, num::NonZeroIsize::new(-0x7FFF_FFFF_FFFF_FFFFisize).unwrap() }
-
 
     // Floating point numbers
     test_passthrough! { f32, 0.0_f32 }

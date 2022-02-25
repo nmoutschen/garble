@@ -8,3 +8,9 @@ impl<T> std::ops::Deref for NoGarble<T> {
         &self.0
     }
 }
+
+impl<T> From<T> for NoGarble<T> {
+    fn from(t: T) -> Self {
+        NoGarble(t)
+    }
+}
