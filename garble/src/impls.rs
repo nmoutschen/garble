@@ -1,7 +1,7 @@
 use crate::{Garble, Garbler, NoGarble};
 use core::num;
 use paste::paste;
-use std::{collections, hash, sync::atomic};
+use std::{collections, hash, marker, sync::atomic};
 
 /// Macro for creating [`Garble`] implementations with a closure.
 macro_rules! impl_garble {
@@ -120,7 +120,7 @@ impl_garble_numeric!(i128, NZ(num::NonZeroI128));
 impl_garble_numeric!(isize, NZ(num::NonZeroIsize), AT(atomic::AtomicIsize));
 
 ///////////////////////////////////////////////////////////////////////////////
-// Garble implementation for ()
+// Garble implementation for empty types
 
 impl<'g> Garble<'g> for () {
     type Output = ();
@@ -129,6 +129,17 @@ impl<'g> Garble<'g> for () {
     where
         G: Garbler<'g>,
     {
+    }
+}
+
+impl<'g, T> Garble<'g> for marker::PhantomData<T> {
+    type Output = marker::PhantomData<T>;
+
+    fn garble<G>(self, _garbler: &mut G) -> Self::Output
+    where
+        G: Garbler<'g>,
+    {
+        self
     }
 }
 
