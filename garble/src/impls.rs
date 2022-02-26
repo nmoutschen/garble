@@ -8,7 +8,7 @@ macro_rules! impl_garble {
     // Types with generics
     ($type:ty[$($generics:expr),+] => ($output:ty, $closure:tt)) => {
         paste! {
-            impl<'g, $($generics),+> Garble for $type<$($generics),+>
+            impl<$($generics),+> Garble for $type<$($generics),+>
             where
                 $(
                     $generics: Garble,
@@ -132,7 +132,7 @@ impl Garble for () {
     }
 }
 
-impl<'g, T> Garble for marker::PhantomData<T> {
+impl<T> Garble for marker::PhantomData<T> {
     type Output = marker::PhantomData<T>;
 
     fn garble<G>(self, _garbler: &mut G) -> Self::Output
@@ -148,7 +148,7 @@ impl<'g, T> Garble for marker::PhantomData<T> {
 
 // For NoGarble, we can ignore if the value is [`Garble`] or not, as it will
 // never be garbled.
-impl<'g, T> Garble for NoGarble<T> {
+impl<T> Garble for NoGarble<T> {
     type Output = T;
 
     fn garble<G>(self, _garbler: &mut G) -> Self::Output
@@ -177,7 +177,7 @@ impl_garble!(Result[T, E] => (
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementations for arrays and slices
 
-impl<'g, T, const N: usize> Garble for [T; N]
+impl<T, const N: usize> Garble for [T; N]
 where
     T: Garble,
 {
@@ -190,6 +190,47 @@ where
         self.map(|v| v.garble(garbler))
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Garble implementations for tuples
+
+macro_rules! impl_garble_tuple {
+    ($($generics:tt),+) => {
+        paste! {
+            impl<$([<T $generics>]),+> Garble for ($([<T $generics>],)+)
+            where
+                $([<T $generics>]: Garble),+
+            {
+                type Output = ($([<T $generics>]::Output,)+);
+
+                fn garble<G>(self, garbler: &mut G) -> Self::Output
+                where
+                    G: Garbler,
+                {
+                    (
+                        $(self.$generics.garble(garbler),)+
+                    )
+                }
+            }
+        }
+    }
+}
+impl_garble_tuple!(0);
+impl_garble_tuple!(0, 1);
+impl_garble_tuple!(0, 1, 2);
+impl_garble_tuple!(0, 1, 2, 3);
+impl_garble_tuple!(0, 1, 2, 3, 4);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+impl_garble_tuple!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementations for sequences
@@ -212,7 +253,7 @@ impl_garble_sequence! { collections::LinkedList }
 macro_rules! impl_garble_map {
     ($type:ty, $bounds:expr) => {
         paste! {
-            impl<'g, K, V> Garble for $type<K, V>
+            impl<K, V> Garble for $type<K, V>
             where
                 K: Garble,
                 V: Garble,
@@ -239,7 +280,7 @@ impl_garble_map!(collections::HashMap, hash::Hash + Eq);
 macro_rules! impl_garble_set {
     ($type:ty, $bounds:expr) => {
         paste! {
-            impl<'g, T> Garble for $type<T>
+            impl<T> Garble for $type<T>
             where
                 T: Garble,
                 T::Output: $bounds,
@@ -343,7 +384,7 @@ impl_garble!(ffi::CString => (
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementation for borrowed values
 
-impl<'g, T> Garble for &T
+impl<T> Garble for &T
 where
     T: Garble + Clone,
 {
@@ -543,6 +584,11 @@ mod tests {
         &String::from("Hello, world!"),
         String::from("Hello, world!")
     );
+
+    // Tuples
+    test_passthrough!(tuple1, ("a",), ("a".to_string(),));
+    test_passthrough!(tuple2, (2, 'a'));
+    test_passthrough!(tuple3, (3, 'a', 1.5f32));
 
     // Bytes
     test_passthrough!(bytes, b"Hello, world!", b"Hello, world!".to_owned());
