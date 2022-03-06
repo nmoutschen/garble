@@ -608,20 +608,7 @@
 <span id="606">606</span>
 <span id="607">607</span>
 <span id="608">608</span>
-<span id="609">609</span>
-<span id="610">610</span>
-<span id="611">611</span>
-<span id="612">612</span>
-<span id="613">613</span>
-<span id="614">614</span>
-<span id="615">615</span>
-<span id="616">616</span>
-<span id="617">617</span>
-<span id="618">618</span>
-<span id="619">619</span>
-<span id="620">620</span>
-<span id="621">621</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Garble</span>, <span class="ident">Garbler</span>, <span class="ident">NoGarble</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Garble</span>, <span class="ident">Garbler</span>};
 <span class="kw">use</span> <span class="ident">core::num</span>;
 <span class="kw">use</span> <span class="ident">paste::paste</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>, <span class="ident">ffi</span>, <span class="ident">hash</span>, <span class="ident">marker</span>, <span class="ident">net</span>, <span class="ident">sync::atomic</span>};
@@ -768,19 +755,6 @@
 
 <span class="comment">///////////////////////////////////////////////////////////////////////////////</span>
 <span class="comment">// Garble implementations for wrapping types</span>
-
-<span class="comment">// For NoGarble, we can ignore if the value is [`Garble`] or not, as it will</span>
-<span class="comment">// never be garbled.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Garble</span> <span class="kw">for</span> <span class="ident">NoGarble</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">T</span>;
-
-    <span class="kw">fn</span> <span class="ident">garble</span><span class="op">&lt;</span><span class="ident">G</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">_garbler</span>: <span class="kw-2">&amp;mut</span> <span class="ident">G</span>) -&gt; <span class="ident"><span class="self">Self</span>::Output</span>
-    <span class="kw">where</span>
-        <span class="ident">G</span>: <span class="ident">Garbler</span>,
-    {
-        <span class="self">self</span>.<span class="number">0</span>
-    }
-}
 
 <span class="comment">// Option&lt;T&gt;</span>
 <span class="macro">impl_garble!</span>(<span class="prelude-ty">Option</span>[<span class="ident">T</span>] =&gt; (
