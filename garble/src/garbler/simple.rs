@@ -81,7 +81,7 @@ impl Garbler for SimpleGarbler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Garble, NoGarble};
+    use crate::Garble;
 
     // TODO: tests can be brittle here
 
@@ -109,16 +109,6 @@ mod tests {
                         let value = $v.garble(&mut garbler);
                         // THEN the value should be different
                         assert_ne!(value, $v);
-                    }
-
-                    #[test]
-                    fn [<test_100pc_nogarble>]() {
-                        // GIVEN a SimpleGarbler with a rate of 100%
-                        let mut garbler = SimpleGarbler::new(100.0);
-                        // WHEN we garble a non-garblable value
-                        let value = NoGarble($v).garble(&mut garbler);
-                        // THEN the value should be the same as the original
-                        assert_eq!(value, $v);
                     }
 
                     #[test]

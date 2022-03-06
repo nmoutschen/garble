@@ -6,6 +6,8 @@
 //! #[derive(Garble)]
 //! struct MyStruct {
 //!     a: u32,
+//!     #[nogarble]
+//!     b: u32,
 //! }
 //! ```
 //!
@@ -16,6 +18,11 @@ use syn::Data;
 use synstructure::{decl_derive, AddBounds, BindStyle, Structure};
 
 // TODO: Add support for unions
+
+#[derive(Default)]
+struct BindingProps {
+    nogarble: bool,
+}
 
 fn derive_garble(mut s: Structure) -> TokenStream {
     let ast = s.ast();
@@ -31,17 +38,39 @@ fn derive_garble(mut s: Structure) -> TokenStream {
             .bindings()
             .iter()
             .map(|bi| {
+                let mut props = BindingProps::default();
+
+                for attr in &bi.ast().attrs {
+                    if attr.path.is_ident("nogarble") {
+                        props.nogarble = true;
+                    }
+                }
+
                 let ident = &bi.ast().ident;
 
                 let c = syn::Index::from(counter);
 
-                let ret = match ident {
-                    Some(i) => quote! {
-                        #i: garbler.garble(#bi)
-                    },
-                    None => quote! {
-                        #c: garbler.garble(#bi)
-                    },
+                let ret = if props.nogarble {
+                    // If we shouldn't garble this field
+                    match ident {
+                        // If it has an ident
+                        Some(i) => quote! {
+                            #i: #bi
+                        },
+                        // If not
+                        None => quote! {
+                            #c: #bi
+                        },
+                    }
+                } else {
+                    match ident {
+                        Some(i) => quote! {
+                            #i: garbler.garble(#bi)
+                        },
+                        None => quote! {
+                            #c: garbler.garble(#bi)
+                        },
+                    }
                 };
                 counter += 1;
                 ret
@@ -90,7 +119,7 @@ fn derive_garble(mut s: Structure) -> TokenStream {
     }
 }
 
-decl_derive!([Garble] => derive_garble);
+decl_derive!([Garble, attributes(nogarble)] => derive_garble);
 
 #[cfg(test)]
 mod tests {
@@ -150,6 +179,36 @@ mod tests {
                                 MyStruct { a : __binding_0, } => {
                                     MyStruct {
                                         a: garbler.garble(__binding_0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+        }
+    }
+
+    #[test]
+    fn test_struct2() {
+        synstructure::test_derive! {
+            derive_garble {
+                struct MyStruct {
+                    a: u32,
+                    b: u32,
+                }
+            }
+            expands to {
+                #[allow(non_upper_case_globals)]
+                const _DERIVE_garble_Garble_g_FOR_MyStruct : () = {
+                    impl ::garble::Garble for MyStruct {
+                        type Output = Self;
+                        fn garble<G>(self, garbler: & mut G)-> Self where G: ::garble::Garbler {
+                            match self {
+                                MyStruct { a : __binding_0, b : __binding_1, } => {
+                                    MyStruct {
+                                        a: garbler.garble(__binding_0),
+                                        b: garbler.garble(__binding_1)
                                     }
                                 }
                             }

@@ -2,4 +2,5 @@
 members = [
     "garble",
     "garble_derive",
+    "garble_test",
 ]

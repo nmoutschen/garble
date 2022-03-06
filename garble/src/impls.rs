@@ -1,4 +1,4 @@
-use crate::{Garble, Garbler, NoGarble};
+use crate::{Garble, Garbler};
 use core::num;
 use paste::paste;
 use std::{collections, ffi, hash, marker, net, sync::atomic};
@@ -145,19 +145,6 @@ impl<T> Garble for marker::PhantomData<T> {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Garble implementations for wrapping types
-
-// For NoGarble, we can ignore if the value is [`Garble`] or not, as it will
-// never be garbled.
-impl<T> Garble for NoGarble<T> {
-    type Output = T;
-
-    fn garble<G>(self, _garbler: &mut G) -> Self::Output
-    where
-        G: Garbler,
-    {
-        self.0
-    }
-}
 
 // Option<T>
 impl_garble!(Option[T] => (
