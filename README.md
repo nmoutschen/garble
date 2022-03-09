@@ -1,4 +1,4 @@
-# Data garbling crate
+Data garbling crate
 
 The purpose of this crate is to provide a way to slightly modify data in
 controlled way for fault injection purposes.
@@ -26,7 +26,7 @@ use garble::{Garble, SimpleGarbler};
 
 #[derive(Debug, Garble)]
 struct MyStruct {
-   a: u32,
+    a: u32,
 }
 
 // Create a garbler with a 50% probability of garbling data
@@ -34,4 +34,25 @@ let mut garbler = SimpleGarbler::new(0.5);
 
 // Garble some data
 dbg!(MyStruct { a: 128 }.garble(&mut garbler));
+```
+
+### Skip garbling fields
+
+You can use the `#[nogarble]` attribute to skip garbling specific fields:
+
+```rust
+use garble::{Garble, SimpleGarbler};
+
+#[derive(Debug, Garble)]
+struct MyStruct {
+    a: u32,
+    #[nogarble]
+    b: u32,
+}
+
+// Create a garbler with a 50% probability of garbling data
+let mut garbler = SimpleGarbler::new(0.5);
+
+// Garble some data
+dbg!(MyStruct { a: 128, b: 127 }.garble(&mut garbler));
 ```
